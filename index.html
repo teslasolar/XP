@@ -13,7 +13,7 @@
     <!-- Loader UI -->
     <div id="loader">
         <h2>Loading v86 Engine</h2>
-        <div id="loader-status">Initializing...</div>
+        <div id="loader-status">Checking environment...</div>
         <div id="file-list">
             <div class="file-item" data-file="v86.wasm"><span>v86.wasm</span><span class="status">pending</span></div>
             <div class="file-item" data-file="seabios.bin"><span>seabios.bin</span><span class="status">pending</span></div>
@@ -26,7 +26,22 @@
         <button id="btn-clear-cache" style="display:none">Clear Cache</button>
     </div>
 
-    <!-- Emulator UI -->
+    <!-- Iframe fallback for CSP-restricted hosts -->
+    <div id="iframe-mode" class="hidden">
+        <div id="iframe-notice">
+            <p>GitHub Pages blocks eval(). Using iframe mode.</p>
+            <p>For full experience, deploy to <a href="https://netlify.com" target="_blank">Netlify</a>.</p>
+        </div>
+        <iframe id="v86-frame" src="" allow="fullscreen"></iframe>
+        <div class="controls">
+            <button onclick="frameCmd('v86-restart')">Restart</button>
+            <button onclick="frameCmd('v86-ctrlaltdel')">Ctrl+Alt+Del</button>
+            <button onclick="frameCmd('v86-save')">Save State</button>
+            <button onclick="toggleFullscreen()">Fullscreen</button>
+        </div>
+    </div>
+
+    <!-- Native emulator UI -->
     <div id="emulator" class="hidden">
         <div id="screen-container"></div>
         <div class="controls">
@@ -52,6 +67,57 @@
     <script src="src/emulator.js"></script>
     <script src="src/ui.js"></script>
     <script src="config.js"></script>
-    <script src="app.js"></script>
+    <script>
+        // Check if eval is allowed (CSP test)
+        function canEval() {
+            try { new Function('return true')(); return true; }
+            catch (e) { return false; }
+        }
+
+        // Iframe commands
+        function frameCmd(type, data) {
+            document.getElementById('v86-frame').contentWindow.postMessage({ type, data }, '*');
+        }
+
+        function toggleFullscreen() {
+            const el = document.getElementById('v86-frame') || document.getElementById('screen-container');
+            if (document.fullscreenElement) document.exitFullscreen();
+            else el?.requestFullscreen();
+        }
+
+        // Main init
+        document.addEventListener('DOMContentLoaded', async () => {
+            Logger.info('App', 'Initializing');
+
+            if (canEval()) {
+                // Native mode - load app.js
+                Logger.info('App', 'CSP allows eval - native mode');
+                const script = document.createElement('script');
+                script.src = 'app.js';
+                document.body.appendChild(script);
+            } else {
+                // Iframe mode - embed from permissive host
+                Logger.warn('App', 'CSP blocks eval - iframe mode');
+                document.getElementById('loader').classList.add('hidden');
+                document.getElementById('iframe-mode').classList.remove('hidden');
+
+                // Set iframe src (change this to your Netlify URL)
+                const embedUrl = VM_CONFIG.embed_url || 'embed.html';
+                const params = new URLSearchParams();
+                if (VM_CONFIG.hda_url) params.set('hda', VM_CONFIG.hda_url);
+                if (VM_CONFIG.initial_state) params.set('state', VM_CONFIG.initial_state);
+                params.set('mem', VM_CONFIG.memory_size || 268435456);
+
+                document.getElementById('v86-frame').src = embedUrl + '?' + params.toString();
+
+                // Listen for messages from iframe
+                window.addEventListener('message', (e) => {
+                    if (e.data.type === 'v86-ready') {
+                        Logger.info('App', 'v86 ready in iframe');
+                    }
+                });
+            }
+        });
+    </script>
 </body>
 </html>

@@ -1,5 +1,5 @@
 /**
- * Loader Module - Downloads and caches v86 binaries
+ * Loader Module - Downloads v86 binaries with self-test
  */
 const Loader = {
     TAG: 'Loader',
@@ -9,21 +9,15 @@ const Loader = {
             'https://unpkg.com/v86@latest/build/v86.wasm',
             'https://cdn.jsdelivr.net/npm/v86@latest/build/v86.wasm',
         ],
-        'libv86.js': [
-            'https://unpkg.com/v86@latest/build/libv86.js',
-            'https://cdn.jsdelivr.net/npm/v86@latest/build/libv86.js',
-        ],
         'seabios.bin': [
             'https://cdn.jsdelivr.net/gh/copy/v86@master/bios/seabios.bin',
-            'https://raw.githubusercontent.com/copy/v86/master/bios/seabios.bin',
         ],
         'vgabios.bin': [
             'https://cdn.jsdelivr.net/gh/copy/v86@master/bios/vgabios.bin',
-            'https://raw.githubusercontent.com/copy/v86/master/bios/vgabios.bin',
         ],
     },
 
-    REQUIRED: ['v86.wasm', 'seabios.bin', 'vgabios.bin'],  // libv86.js loaded via script tag
+    REQUIRED: ['v86.wasm', 'seabios.bin', 'vgabios.bin'],
     SCRIPT_URL: 'https://unpkg.com/v86@latest/build/libv86.js',
     onProgress: null,
 
@@ -53,7 +47,6 @@ const Loader = {
                 const data = new Uint8Array(loaded);
                 let offset = 0;
                 for (const chunk of chunks) { data.set(chunk, offset); offset += chunk.length; }
-
                 Logger.info(this.TAG, `Downloaded ${name}`, { size: loaded });
                 return data;
             } catch (err) {
@@ -75,12 +68,10 @@ const Loader = {
     },
 
     async loadAll() {
-        Logger.info(this.TAG, 'Loading all files', { files: this.REQUIRED });
         const files = {};
         for (const name of this.REQUIRED) {
             files[name] = await this.load(name);
         }
-        Logger.info(this.TAG, 'All files loaded');
         return files;
     },
 
@@ -95,15 +86,11 @@ const Loader = {
 
     async loadScript() {
         return new Promise((resolve, reject) => {
-            if (typeof V86 !== 'undefined') {
-                Logger.info(this.TAG, 'V86 already loaded');
-                resolve();
-                return;
-            }
+            if (typeof V86 !== 'undefined') { resolve(); return; }
             const script = document.createElement('script');
             script.src = this.SCRIPT_URL;
             script.crossOrigin = 'anonymous';
-            script.onload = () => { Logger.info(this.TAG, 'libv86.js loaded from CDN'); resolve(); };
+            script.onload = () => { Logger.info(this.TAG, 'libv86.js loaded'); resolve(); };
             script.onerror = () => reject(new Error('Failed to load libv86.js'));
             document.head.appendChild(script);
         });
@@ -111,7 +98,34 @@ const Loader = {
 
     async checkSources() {
         const urls = Object.values(this.SOURCES).flat();
+        urls.push(this.SCRIPT_URL);
         return API.checkEndpoints(urls);
+    },
+
+    // Self-test
+    async test() {
+        const r = { pass: 0, fail: 0, tests: [] };
+        const t = async (name, fn) => {
+            try { await fn(); r.pass++; r.tests.push({ name, ok: true }); }
+            catch (e) { r.fail++; r.tests.push({ name, ok: false, err: e.message }); }
+        };
+
+        await t('SOURCES defined', () => {
+            if (!this.SOURCES['v86.wasm']) throw new Error('missing');
+        });
+
+        await t('checkSources returns array', async () => {
+            const res = await this.checkSources();
+            if (!Array.isArray(res)) throw new Error('not array');
+        });
+
+        await t('createBlobURLs works', () => {
+            const urls = this.createBlobURLs({ 'test.bin': new Uint8Array([1]) });
+            if (!urls['test.bin'].startsWith('blob:')) throw new Error('bad url');
+        });
+
+        console.log('[Loader.test]', r.pass + '/' + (r.pass + r.fail), 'passed');
+        return r;
     }
 };
 

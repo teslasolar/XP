@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>v86 Embed</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { background: #000; }
+        #screen { width: 100vw; height: 100vh; }
+        #screen canvas { width: 100%; height: 100%; }
+        #status { position: fixed; bottom: 10px; left: 10px; color: #0f0; font: 12px monospace; }
+    </style>
+</head>
+<body>
+    <div id="screen"></div>
+    <div id="status">Loading...</div>
+
+    <script>
+        // This page runs v86 - host on Netlify/Vercel with unsafe-eval CSP
+        const CONFIG = {
+            wasm: 'https://unpkg.com/v86@latest/build/v86.wasm',
+            bios: 'https://cdn.jsdelivr.net/gh/copy/v86@master/bios/seabios.bin',
+            vga: 'https://cdn.jsdelivr.net/gh/copy/v86@master/bios/vgabios.bin',
+            libv86: 'https://unpkg.com/v86@latest/build/libv86.js',
+        };
+
+        const status = document.getElementById('status');
+        let emulator = null;
+
+        // Load v86 library
+        function loadScript(url) {
+            return new Promise((resolve, reject) => {
+                const s = document.createElement('script');
+                s.src = url;
+                s.onload = resolve;
+                s.onerror = reject;
+                document.head.appendChild(s);
+            });
+        }
+
+        async function init() {
+            status.textContent = 'Loading v86...';
+            await loadScript(CONFIG.libv86);
+
+            // Get config from parent or URL params
+            const params = new URLSearchParams(location.search);
+            const hdaUrl = params.get('hda') || 'xp.img';
+            const stateUrl = params.get('state');
+            const memory = parseInt(params.get('mem') || '268435456', 10);
+
+            status.textContent = 'Starting VM...';
+
+            const config = {
+                wasm_path: CONFIG.wasm,
+                bios: { url: CONFIG.bios },
+                vga_bios: { url: CONFIG.vga },
+                screen_container: document.getElementById('screen'),
+                memory_size: memory,
+                vga_memory_size: 8 * 1024 * 1024,
+                autostart: true,
+            };
+
+            if (stateUrl) {
+                config.initial_state = { url: stateUrl };
+            } else {
+                config.hda = { url: hdaUrl, async: true };
+            }
+
+            emulator = new V86(config);
+
+            emulator.add_listener('emulator-ready', () => {
+                status.textContent = 'Booting...';
+                // Notify parent frame
+                parent.postMessage({ type: 'v86-ready' }, '*');
+            });
+
+            emulator.add_listener('emulator-started', () => {
+                status.textContent = 'Running';
+                setTimeout(() => status.style.display = 'none', 2000);
+            });
+        }
+
+        // Listen for commands from parent
+        window.addEventListener('message', (e) => {
+            if (!emulator) return;
+            const { type, data } = e.data || {};
+
+            switch (type) {
+                case 'v86-serial':
+                    emulator.serial0_send(data);
+                    break;
+                case 'v86-restart':
+                    emulator.restart();
+                    break;
+                case 'v86-stop':
+                    emulator.stop();
+                    break;
+                case 'v86-ctrlaltdel':
+                    emulator.keyboard_send_scancodes([0x1D, 0x38, 0x53, 0xD3, 0xB8, 0x9D]);
+                    break;
+                case 'v86-save':
+                    emulator.save_state((err, state) => {
+                        if (!err) parent.postMessage({ type: 'v86-state', data: state }, '*');
+                    });
+                    break;
+            }
+        });
+
+        init().catch(err => {
+            status.textContent = 'Error: ' + err.message;
+            status.style.color = '#f00';
+        });
+    </script>
+</body>
+</html>

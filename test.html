@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>v86-xp Tests</title>
+    <style>
+        body { font-family: monospace; background: #1a1a2e; color: #eee; padding: 20px; }
+        h1 { color: #00d4ff; }
+        .module { margin: 20px 0; padding: 15px; background: #2a2a4a; border-radius: 8px; }
+        .pass { color: #0f0; }
+        .fail { color: #f00; }
+        .test { margin: 5px 0; padding: 5px; }
+        button { background: #0066cc; color: white; border: none; padding: 10px 20px; cursor: pointer; border-radius: 5px; }
+        #results { margin-top: 20px; }
+    </style>
+</head>
+<body>
+    <h1>v86-xp Self Tests</h1>
+    <button onclick="runTests()">Run All Tests</button>
+    <button onclick="runTests('Logger')">Logger</button>
+    <button onclick="runTests('API')">API</button>
+    <button onclick="runTests('Cache')">Cache</button>
+    <button onclick="runTests('Loader')">Loader</button>
+    <div id="results"></div>
+
+    <script src="src/logger.js"></script>
+    <script src="src/api.js"></script>
+    <script src="src/cache.js"></script>
+    <script src="src/loader.js"></script>
+    <script>
+        const modules = { Logger, API, Cache, Loader };
+
+        async function runTests(only) {
+            const results = document.getElementById('results');
+            results.innerHTML = '<p>Running tests...</p>';
+            let html = '';
+            let total = { pass: 0, fail: 0 };
+
+            for (const [name, mod] of Object.entries(modules)) {
+                if (only && name !== only) continue;
+                if (!mod.test) continue;
+
+                html += `<div class="module"><h3>${name}</h3>`;
+                try {
+                    const r = await mod.test();
+                    total.pass += r.pass;
+                    total.fail += r.fail;
+                    for (const t of r.tests) {
+                        const cls = t.ok ? 'pass' : 'fail';
+                        html += `<div class="test ${cls}">${t.ok ? '✓' : '✗'} ${t.name}`;
+                        if (t.err) html += ` - ${t.err}`;
+                        html += '</div>';
+                    }
+                } catch (e) {
+                    html += `<div class="test fail">✗ Error: ${e.message}</div>`;
+                    total.fail++;
+                }
+                html += '</div>';
+            }
+
+            const cls = total.fail === 0 ? 'pass' : 'fail';
+            html = `<h2 class="${cls}">${total.pass}/${total.pass + total.fail} tests passed</h2>` + html;
+            results.innerHTML = html;
+        }
+    </script>
+</body>
+</html>

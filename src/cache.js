@@ -1,5 +1,5 @@
 /**
- * Cache Module - IndexedDB storage for binary files
+ * Cache Module - IndexedDB storage with self-test
  */
 const Cache = {
     DB_NAME: 'v86-cache',
@@ -47,7 +47,7 @@ const Cache = {
         return new Promise((resolve, reject) => {
             const tx = this.db.transaction(this.STORE, 'readwrite');
             const req = tx.objectStore(this.STORE).clear();
-            req.onsuccess = () => { Logger.info('Cache', 'Cleared'); resolve(); };
+            req.onsuccess = () => resolve();
             req.onerror = () => reject(req.error);
         });
     },
@@ -60,6 +60,40 @@ const Cache = {
             req.onsuccess = () => resolve(req.result);
             req.onerror = () => reject(req.error);
         });
+    },
+
+    // Self-test
+    async test() {
+        const r = { pass: 0, fail: 0, tests: [] };
+        const t = async (name, fn) => {
+            try { await fn(); r.pass++; r.tests.push({ name, ok: true }); }
+            catch (e) { r.fail++; r.tests.push({ name, ok: false, err: e.message }); }
+        };
+
+        await t('init opens db', async () => {
+            await this.init();
+            if (!this.db) throw new Error('no db');
+        });
+
+        await t('set/get works', async () => {
+            await this.set('_test', new Uint8Array([1, 2, 3]));
+            const data = await this.get('_test');
+            if (!data || data.length !== 3) throw new Error('bad data');
+        });
+
+        await t('list includes test', async () => {
+            const keys = await this.list();
+            if (!keys.includes('_test')) throw new Error('not listed');
+        });
+
+        await t('clear works', async () => {
+            await this.clear();
+            const data = await this.get('_test');
+            if (data) throw new Error('not cleared');
+        });
+
+        console.log('[Cache.test]', r.pass + '/' + (r.pass + r.fail), 'passed');
+        return r;
     }
 };
 
