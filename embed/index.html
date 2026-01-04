@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>v86 Embed</title>
+    <style>
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{background:#000;overflow:hidden}
+        #s{width:100vw;height:100vh}
+        #s canvas{width:100%;height:100%}
+        #m{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);color:#0f0;font:14px monospace;text-align:center}
+        .err{color:#f00}
+    </style>
+</head>
+<body>
+    <div id="s"></div>
+    <div id="m">Loading v86...</div>
+    <script src="https://unpkg.com/v86@latest/build/libv86.js"></script>
+    <script>
+    const $=id=>document.getElementById(id);
+    const msg=(t,e)=>{$('m').textContent=t;if(e)$('m').classList.add('err')};
+
+    const P=new URLSearchParams(location.search);
+    const hda=P.get('hda')||P.get('img');
+    const state=P.get('state');
+    const mem=+(P.get('mem')||268435456);
+
+    if(!hda&&!state){msg('Error: No disk image. Add ?hda=URL or ?state=URL',1)}
+    else{
+        msg('Starting VM...');
+        const cfg={
+            wasm_path:'https://unpkg.com/v86@latest/build/v86.wasm',
+            bios:{url:'https://cdn.jsdelivr.net/gh/copy/v86@master/bios/seabios.bin'},
+            vga_bios:{url:'https://cdn.jsdelivr.net/gh/copy/v86@master/bios/vgabios.bin'},
+            screen_container:$('s'),
+            memory_size:mem,
+            vga_memory_size:8*1024*1024,
+            autostart:true
+        };
+        if(state)cfg.initial_state={url:state};
+        else cfg.hda={url:hda,async:true};
+
+        try{
+            const vm=new V86(cfg);
+            vm.add_listener('emulator-ready',()=>{msg('Booting...');parent.postMessage({t:'ready'},'*')});
+            vm.add_listener('emulator-started',()=>{$('m').style.display='none'});
+
+            window.addEventListener('message',e=>{
+                const{t,d}=e.data||{};
+                if(t==='serial')vm.serial0_send(d);
+                if(t==='restart')vm.restart();
+                if(t==='stop')vm.stop();
+                if(t==='cad')vm.keyboard_send_scancodes([0x1D,0x38,0x53,0xD3,0xB8,0x9D]);
+                if(t==='save')vm.save_state((err,s)=>{if(!err)parent.postMessage({t:'state',d:s},'*')});
+            });
+        }catch(e){msg('Error: '+e.message,1)}
+    }
+    </script>
+</body>
+</html>

@@ -10,38 +10,26 @@
     <h1>Windows XP VM</h1>
     <p class="info">v86 Emulator | 256MB RAM | Browser Sandbox</p>
 
-    <!-- Loader UI -->
+    <!-- Loader -->
     <div id="loader">
-        <h2>Loading v86 Engine</h2>
+        <h2 id="loader-title">Loading...</h2>
         <div id="loader-status">Checking environment...</div>
-        <div id="file-list">
-            <div class="file-item" data-file="v86.wasm"><span>v86.wasm</span><span class="status">pending</span></div>
-            <div class="file-item" data-file="seabios.bin"><span>seabios.bin</span><span class="status">pending</span></div>
-            <div class="file-item" data-file="vgabios.bin"><span>vgabios.bin</span><span class="status">pending</span></div>
-            <div class="file-item" data-file="libv86.js"><span>libv86.js</span><span class="status">CDN</span></div>
-        </div>
-        <div class="progress-container"><div class="progress-bar" id="total-progress">0%</div></div>
-        <div id="loader-error"></div>
-        <button id="btn-retry" style="display:none">Retry</button>
-        <button id="btn-clear-cache" style="display:none">Clear Cache</button>
+        <div id="loader-error" class="hidden"></div>
     </div>
 
-    <!-- Iframe fallback for CSP-restricted hosts -->
+    <!-- Iframe mode (for GitHub Pages) -->
     <div id="iframe-mode" class="hidden">
-        <div id="iframe-notice">
-            <p>GitHub Pages blocks eval(). Using iframe mode.</p>
-            <p>For full experience, deploy to <a href="https://netlify.com" target="_blank">Netlify</a>.</p>
-        </div>
         <iframe id="v86-frame" src="" allow="fullscreen"></iframe>
         <div class="controls">
-            <button onclick="frameCmd('v86-restart')">Restart</button>
-            <button onclick="frameCmd('v86-ctrlaltdel')">Ctrl+Alt+Del</button>
-            <button onclick="frameCmd('v86-save')">Save State</button>
-            <button onclick="toggleFullscreen()">Fullscreen</button>
+            <button onclick="frame('restart')">Restart</button>
+            <button onclick="frame('cad')">Ctrl+Alt+Del</button>
+            <button onclick="frame('save')">Save State</button>
+            <button onclick="fullscreen()">Fullscreen</button>
         </div>
+        <div id="iframe-status">Loading VM...</div>
     </div>
 
-    <!-- Native emulator UI -->
+    <!-- Native mode (for Netlify/Vercel) -->
     <div id="emulator" class="hidden">
         <div id="screen-container"></div>
         <div class="controls">
@@ -53,71 +41,80 @@
             <button id="btn-ctrlaltdel" disabled>Ctrl+Alt+Del</button>
         </div>
         <div id="status">Status: Ready</div>
-        <div class="serial-console">
-            <div id="serial-output"></div>
-            <input type="text" id="serial-input" placeholder="Serial command" disabled>
-        </div>
     </div>
 
-    <!-- Modules -->
     <script src="src/logger.js"></script>
-    <script src="src/api.js"></script>
-    <script src="src/cache.js"></script>
-    <script src="src/loader.js"></script>
-    <script src="src/emulator.js"></script>
-    <script src="src/ui.js"></script>
     <script src="config.js"></script>
     <script>
-        // Check if eval is allowed (CSP test)
-        function canEval() {
-            try { new Function('return true')(); return true; }
-            catch (e) { return false; }
-        }
+    const $=s=>document.getElementById(s);
 
-        // Iframe commands
-        function frameCmd(type, data) {
-            document.getElementById('v86-frame').contentWindow.postMessage({ type, data }, '*');
-        }
+    // CSP check
+    function canEval(){try{return new Function('return 1')()===1}catch(e){return false}}
 
-        function toggleFullscreen() {
-            const el = document.getElementById('v86-frame') || document.getElementById('screen-container');
-            if (document.fullscreenElement) document.exitFullscreen();
-            else el?.requestFullscreen();
-        }
+    // Iframe helpers
+    function frame(t,d){$('v86-frame').contentWindow.postMessage({t,d},'*')}
+    function fullscreen(){
+        const el=$('v86-frame')||$('screen-container');
+        document.fullscreenElement?document.exitFullscreen():el?.requestFullscreen();
+    }
 
-        // Main init
-        document.addEventListener('DOMContentLoaded', async () => {
-            Logger.info('App', 'Initializing');
+    // Init
+    document.addEventListener('DOMContentLoaded',()=>{
+        Logger.info('App','Init - canEval='+canEval());
 
-            if (canEval()) {
-                // Native mode - load app.js
-                Logger.info('App', 'CSP allows eval - native mode');
-                const script = document.createElement('script');
-                script.src = 'app.js';
-                document.body.appendChild(script);
-            } else {
-                // Iframe mode - embed from permissive host
-                Logger.warn('App', 'CSP blocks eval - iframe mode');
-                document.getElementById('loader').classList.add('hidden');
-                document.getElementById('iframe-mode').classList.remove('hidden');
+        if(canEval()){
+            // Native mode
+            $('loader-title').textContent='Loading v86 Engine';
+            const s=document.createElement('script');
+            s.src='src/api.js';
+            s.onload=()=>{
+                const s2=document.createElement('script');s2.src='src/cache.js';
+                s2.onload=()=>{
+                    const s3=document.createElement('script');s3.src='src/loader.js';
+                    s3.onload=()=>{
+                        const s4=document.createElement('script');s4.src='src/emulator.js';
+                        s4.onload=()=>{
+                            const s5=document.createElement('script');s5.src='src/ui.js';
+                            s5.onload=()=>{
+                                const s6=document.createElement('script');s6.src='app.js';
+                                document.body.appendChild(s6);
+                            };document.body.appendChild(s5);
+                        };document.body.appendChild(s4);
+                    };document.body.appendChild(s3);
+                };document.body.appendChild(s2);
+            };document.body.appendChild(s);
+        }else{
+            // Iframe mode
+            Logger.warn('App','CSP blocks eval - using iframe');
+            $('loader').classList.add('hidden');
+            $('iframe-mode').classList.remove('hidden');
 
-                // Set iframe src (change this to your Netlify URL)
-                const embedUrl = VM_CONFIG.embed_url || 'embed.html';
-                const params = new URLSearchParams();
-                if (VM_CONFIG.hda_url) params.set('hda', VM_CONFIG.hda_url);
-                if (VM_CONFIG.initial_state) params.set('state', VM_CONFIG.initial_state);
-                params.set('mem', VM_CONFIG.memory_size || 268435456);
-
-                document.getElementById('v86-frame').src = embedUrl + '?' + params.toString();
-
-                // Listen for messages from iframe
-                window.addEventListener('message', (e) => {
-                    if (e.data.type === 'v86-ready') {
-                        Logger.info('App', 'v86 ready in iframe');
-                    }
-                });
+            // Build iframe URL
+            let embedUrl=VM_CONFIG.embed_url;
+            if(!embedUrl){
+                $('iframe-status').textContent='Error: Set VM_CONFIG.embed_url to your Netlify URL';
+                $('iframe-status').style.color='#f00';
+                return;
             }
-        });
+
+            const p=new URLSearchParams();
+            if(VM_CONFIG.hda_url)p.set('hda',VM_CONFIG.hda_url);
+            if(VM_CONFIG.initial_state)p.set('state',VM_CONFIG.initial_state);
+            p.set('mem',VM_CONFIG.memory_size||268435456);
+
+            $('v86-frame').src=embedUrl+(embedUrl.includes('?')?'&':'?')+p.toString();
+
+            // Listen for iframe messages
+            window.addEventListener('message',e=>{
+                if(e.data?.t==='ready')$('iframe-status').textContent='VM Running';
+                if(e.data?.t==='state'){
+                    const a=document.createElement('a');
+                    a.href=URL.createObjectURL(new Blob([e.data.d]));
+                    a.download='state.bin';a.click();
+                }
+            });
+        }
+    });
     </script>
 </body>
 </html>
