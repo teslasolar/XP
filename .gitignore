@@ -1,11 +1,8 @@
-# v86 binaries (download separately, too large for repo)
+# v86 binaries (auto-downloaded, too large for repo)
 *.wasm
 *.bin
 *.img
 *.zst
-
-# Keep config
-!config.js
 
 # OS files
 .DS_Store

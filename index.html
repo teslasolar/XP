@@ -16,25 +16,82 @@
             align-items: center;
             padding: 20px;
         }
-        h1 {
-            margin-bottom: 10px;
-            color: #00d4ff;
+        h1 { margin-bottom: 10px; color: #00d4ff; }
+        .info { font-size: 0.9em; color: #888; margin-bottom: 20px; }
+
+        /* Loader UI */
+        #loader {
+            background: #2a2a4a;
+            border-radius: 10px;
+            padding: 30px;
+            max-width: 500px;
+            width: 100%;
+            text-align: center;
         }
-        .info {
-            font-size: 0.9em;
+        #loader h2 { margin-bottom: 20px; color: #00d4ff; }
+        #loader-status { margin-bottom: 15px; color: #aaa; }
+        .progress-container {
+            background: #1a1a2e;
+            border-radius: 5px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+        .progress-bar {
+            height: 24px;
+            background: linear-gradient(90deg, #0066cc, #00d4ff);
+            width: 0%;
+            transition: width 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .file-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px;
+            margin: 5px 0;
+            background: #1a1a2e;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+        .file-item .status {
             color: #888;
-            margin-bottom: 20px;
+            font-size: 12px;
         }
+        .file-item.done .status { color: #0f0; }
+        .file-item.loading .status { color: #ff0; }
+        .file-item.error .status { color: #f00; }
+        #loader-error {
+            color: #ff4444;
+            background: rgba(255,0,0,0.1);
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 15px;
+            display: none;
+        }
+        #btn-retry {
+            margin-top: 15px;
+            background: #cc6600;
+        }
+        #btn-clear-cache {
+            background: #660000;
+            margin-left: 10px;
+        }
+
+        /* Emulator UI */
+        #emulator { display: none; width: 100%; }
         #screen-container {
             background: #000;
             border: 3px solid #333;
             border-radius: 8px;
             overflow: hidden;
             box-shadow: 0 0 30px rgba(0, 212, 255, 0.2);
+            margin: 0 auto;
         }
-        #screen-container canvas {
-            display: block;
-        }
+        #screen-container canvas { display: block; }
         .controls {
             margin-top: 20px;
             display: flex;
@@ -60,6 +117,7 @@
             background: #2a2a4a;
             border-radius: 5px;
             font-family: monospace;
+            text-align: center;
         }
         .serial-console {
             margin-top: 20px;
@@ -88,34 +146,194 @@
             margin-top: 5px;
             border-radius: 5px;
         }
-        .hidden { display: none; }
     </style>
 </head>
 <body>
     <h1>Windows XP VM</h1>
-    <p class="info">v86 x86 Emulator | 256MB RAM | Self-contained browser sandbox</p>
+    <p class="info">v86 x86 Emulator | 256MB RAM | Browser Sandbox</p>
 
-    <div id="screen-container"></div>
+    <!-- Loader UI -->
+    <div id="loader">
+        <h2>Loading v86 Engine</h2>
+        <div id="loader-status">Initializing...</div>
 
-    <div class="controls">
-        <button id="btn-start">Start VM</button>
-        <button id="btn-stop" disabled>Stop VM</button>
-        <button id="btn-restart" disabled>Restart</button>
-        <button id="btn-fullscreen">Fullscreen</button>
-        <button id="btn-save-state" disabled>Save State</button>
-        <button id="btn-ctrlaltdel" disabled>Ctrl+Alt+Del</button>
+        <div id="file-list">
+            <div class="file-item" data-file="libv86.js">
+                <span>libv86.js</span>
+                <span class="status">pending</span>
+            </div>
+            <div class="file-item" data-file="v86.wasm">
+                <span>v86.wasm</span>
+                <span class="status">pending</span>
+            </div>
+            <div class="file-item" data-file="seabios.bin">
+                <span>seabios.bin</span>
+                <span class="status">pending</span>
+            </div>
+            <div class="file-item" data-file="vgabios.bin">
+                <span>vgabios.bin</span>
+                <span class="status">pending</span>
+            </div>
+        </div>
+
+        <div class="progress-container">
+            <div class="progress-bar" id="total-progress">0%</div>
+        </div>
+
+        <div id="loader-error"></div>
+
+        <button id="btn-retry" style="display:none">Retry Download</button>
+        <button id="btn-clear-cache" style="display:none">Clear Cache</button>
     </div>
 
-    <div id="status">Status: Ready</div>
+    <!-- Emulator UI (hidden until loaded) -->
+    <div id="emulator">
+        <div id="screen-container"></div>
 
-    <div class="serial-console">
-        <div id="serial-output"></div>
-        <input type="text" id="serial-input" placeholder="Serial command (Enter to send)" disabled>
+        <div class="controls">
+            <button id="btn-start">Start VM</button>
+            <button id="btn-stop" disabled>Stop VM</button>
+            <button id="btn-restart" disabled>Restart</button>
+            <button id="btn-fullscreen">Fullscreen</button>
+            <button id="btn-save-state" disabled>Save State</button>
+            <button id="btn-ctrlaltdel" disabled>Ctrl+Alt+Del</button>
+        </div>
+
+        <div id="status">Status: Ready</div>
+
+        <div class="serial-console">
+            <div id="serial-output"></div>
+            <input type="text" id="serial-input" placeholder="Serial command (Enter to send)" disabled>
+        </div>
     </div>
 
-    <script src="libv86.js"></script>
+    <script src="loader.js"></script>
     <script src="config.js"></script>
     <script>
+        // ============ Loader Logic ============
+        const loaderUI = document.getElementById('loader');
+        const emulatorUI = document.getElementById('emulator');
+        const loaderStatus = document.getElementById('loader-status');
+        const loaderError = document.getElementById('loader-error');
+        const totalProgress = document.getElementById('total-progress');
+        const btnRetry = document.getElementById('btn-retry');
+        const btnClearCache = document.getElementById('btn-clear-cache');
+
+        let loadedFiles = {};
+        let blobURLs = {};
+        let filesLoaded = 0;
+        const totalFiles = V86Loader.REQUIRED.length;
+
+        function updateFileStatus(name, status, detail = '') {
+            const item = document.querySelector(`.file-item[data-file="${name}"]`);
+            if (!item) return;
+
+            item.className = 'file-item ' + status;
+            const statusEl = item.querySelector('.status');
+
+            switch (status) {
+                case 'loading':
+                    statusEl.textContent = detail || 'downloading...';
+                    break;
+                case 'done':
+                    statusEl.textContent = detail || 'cached';
+                    break;
+                case 'error':
+                    statusEl.textContent = 'failed';
+                    break;
+                default:
+                    statusEl.textContent = 'pending';
+            }
+        }
+
+        function formatBytes(bytes) {
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+            return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+        }
+
+        V86Loader.onStatus = (msg) => {
+            loaderStatus.textContent = msg;
+
+            // Parse status to update file items
+            for (const name of V86Loader.REQUIRED) {
+                if (msg.includes(name)) {
+                    if (msg.includes('from cache')) {
+                        updateFileStatus(name, 'done', 'cached');
+                        filesLoaded++;
+                    } else if (msg.includes('downloaded')) {
+                        updateFileStatus(name, 'done', 'downloaded');
+                        filesLoaded++;
+                    } else if (msg.includes('Downloading')) {
+                        updateFileStatus(name, 'loading');
+                    }
+                }
+            }
+
+            // Update total progress
+            const pct = Math.round((filesLoaded / totalFiles) * 100);
+            totalProgress.style.width = pct + '%';
+            totalProgress.textContent = pct + '%';
+        };
+
+        V86Loader.onProgress = (file, pct, loaded, total) => {
+            updateFileStatus(file, 'loading', `${pct}% (${formatBytes(loaded)})`);
+        };
+
+        async function loadV86Files() {
+            try {
+                loaderError.style.display = 'none';
+                btnRetry.style.display = 'none';
+                btnClearCache.style.display = 'none';
+                filesLoaded = 0;
+
+                // Reset UI
+                for (const name of V86Loader.REQUIRED) {
+                    updateFileStatus(name, 'pending');
+                }
+
+                loaderStatus.textContent = 'Initializing cache...';
+                loadedFiles = await V86Loader.loadAll();
+
+                loaderStatus.textContent = 'Injecting v86 library...';
+                await V86Loader.injectLibrary(loadedFiles['libv86.js']);
+
+                // Create blob URLs for WASM and BIOS
+                blobURLs = V86Loader.createBlobURLs(loadedFiles);
+
+                loaderStatus.textContent = 'Ready!';
+                totalProgress.style.width = '100%';
+                totalProgress.textContent = '100%';
+
+                // Transition to emulator UI
+                setTimeout(() => {
+                    loaderUI.style.display = 'none';
+                    emulatorUI.style.display = 'block';
+
+                    if (VM_CONFIG.autostart) {
+                        startVM();
+                    }
+                }, 500);
+
+            } catch (err) {
+                console.error('Load error:', err);
+                loaderError.textContent = 'Error: ' + err.message;
+                loaderError.style.display = 'block';
+                btnRetry.style.display = 'inline-block';
+                btnClearCache.style.display = 'inline-block';
+            }
+        }
+
+        btnRetry.addEventListener('click', loadV86Files);
+        btnClearCache.addEventListener('click', async () => {
+            await V86Loader.clearCache();
+            loadV86Files();
+        });
+
+        // Start loading on page load
+        loadV86Files();
+
+        // ============ Emulator Logic ============
         let emulator = null;
         const status = document.getElementById('status');
         const serialOutput = document.getElementById('serial-output');
@@ -147,12 +365,12 @@
             setStatus('Initializing...');
 
             const config = {
-                wasm_path: VM_CONFIG.wasm_path,
+                wasm_path: blobURLs['v86.wasm'],
                 memory_size: VM_CONFIG.memory_size,
                 vga_memory_size: VM_CONFIG.vga_memory_size,
                 screen_container: screenContainer,
-                bios: { url: VM_CONFIG.bios_path },
-                vga_bios: { url: VM_CONFIG.vga_bios_path },
+                bios: { url: blobURLs['seabios.bin'] },
+                vga_bios: { url: blobURLs['vgabios.bin'] },
                 autostart: true,
             };
 
@@ -164,7 +382,7 @@
                 config.hda = { url: VM_CONFIG.hda_url, async: true };
                 setStatus('Loading disk image (cold boot ~2-5min)...');
             } else {
-                setStatus('ERROR: No disk image or state configured');
+                setStatus('ERROR: No disk image or state configured in config.js');
                 return;
             }
 
@@ -226,19 +444,14 @@
                 a.download = 'state.bin';
                 a.click();
                 URL.revokeObjectURL(a.href);
-                setStatus('State saved!');
+                setStatus('State saved! Compress with: zstd -19 state.bin');
             });
         }
 
         function sendCtrlAltDel() {
             if (emulator) {
                 emulator.keyboard_send_scancodes([
-                    0x1D, // Ctrl down
-                    0x38, // Alt down
-                    0x53, // Del down
-                    0xD3, // Del up
-                    0xB8, // Alt up
-                    0x9D, // Ctrl up
+                    0x1D, 0x38, 0x53, 0xD3, 0xB8, 0x9D
                 ]);
             }
         }
@@ -251,7 +464,6 @@
             }
         }
 
-        // Event listeners
         btnStart.addEventListener('click', startVM);
         btnStop.addEventListener('click', stopVM);
         btnRestart.addEventListener('click', restartVM);
@@ -265,11 +477,6 @@
                 serialInput.value = '';
             }
         });
-
-        // Auto-start if configured
-        if (VM_CONFIG.autostart) {
-            startVM();
-        }
     </script>
 </body>
 </html>
