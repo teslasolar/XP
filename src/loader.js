@@ -23,7 +23,8 @@ const Loader = {
         ],
     },
 
-    REQUIRED: ['v86.wasm', 'libv86.js', 'seabios.bin', 'vgabios.bin'],
+    REQUIRED: ['v86.wasm', 'seabios.bin', 'vgabios.bin'],  // libv86.js loaded via script tag
+    SCRIPT_URL: 'https://unpkg.com/v86@latest/build/libv86.js',
     onProgress: null,
 
     async download(name) {
@@ -92,12 +93,18 @@ const Loader = {
         return urls;
     },
 
-    async injectScript(data) {
+    async loadScript() {
         return new Promise((resolve, reject) => {
+            if (typeof V86 !== 'undefined') {
+                Logger.info(this.TAG, 'V86 already loaded');
+                resolve();
+                return;
+            }
             const script = document.createElement('script');
-            script.src = URL.createObjectURL(new Blob([data], { type: 'application/javascript' }));
-            script.onload = () => { Logger.info(this.TAG, 'Script injected'); resolve(); };
-            script.onerror = reject;
+            script.src = this.SCRIPT_URL;
+            script.crossOrigin = 'anonymous';
+            script.onload = () => { Logger.info(this.TAG, 'libv86.js loaded from CDN'); resolve(); };
+            script.onerror = () => reject(new Error('Failed to load libv86.js'));
             document.head.appendChild(script);
         });
     },

@@ -69,8 +69,8 @@ const App = {
                 UI.setProgress('total-progress', Math.round(this.filesLoaded / Loader.REQUIRED.length * 100));
             }
 
-            UI.text('loaderStatus', 'Injecting library...');
-            await Loader.injectScript(files['libv86.js']);
+            UI.text('loaderStatus', 'Loading v86 library...');
+            await Loader.loadScript();
 
             this.blobURLs = Loader.createBlobURLs(files);
             UI.text('loaderStatus', 'Ready!');
