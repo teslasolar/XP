@@ -111,8 +111,24 @@ const App = {
         // Ensure emulator is visible
         document.getElementById('emulator').classList.remove('hidden');
 
-        // Wait for layout
-        await new Promise(r => setTimeout(r, 50));
+        // Wait for layout and verify element is ready
+        await new Promise(r => setTimeout(r, 200));
+
+        // Debug: log element state
+        const rect = screenEl.getBoundingClientRect();
+        Logger.info(this.TAG, 'screen-container state', {
+            width: rect.width,
+            height: rect.height,
+            visible: rect.width > 0 && rect.height > 0,
+            display: getComputedStyle(screenEl).display,
+            children: screenEl.children.length
+        });
+
+        if (rect.width === 0 || rect.height === 0) {
+            Logger.error(this.TAG, 'screen-container has no dimensions');
+            UI.text('status', 'Status: Error - screen has no dimensions');
+            return;
+        }
 
         UI.text('status', 'Status: Initializing...');
         try {

@@ -23,6 +23,12 @@ const Emulator = {
     async init(blobURLs, opts = {}) {
         if (typeof V86 === 'undefined') throw new Error('V86 not loaded');
 
+        Logger.debug(this.TAG, 'init called with screen_container', {
+            element: opts.screen_container,
+            tagName: opts.screen_container?.tagName,
+            id: opts.screen_container?.id
+        });
+
         // Use direct CDN URLs instead of blob URLs for better CSP compatibility
         this.config = {
             wasm_path: this.CDN_URLS.wasm,
