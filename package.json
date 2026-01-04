@@ -1,0 +1,21 @@
+{
+  "name": "v86-xp",
+  "version": "1.0.0",
+  "description": "Windows XP VM in browser using v86 emulator",
+  "main": "src/loader.js",
+  "bin": {
+    "v86-xp": "./cli/index.js"
+  },
+  "scripts": {
+    "start": "python3 -m http.server 8080",
+    "cli": "node cli/index.js",
+    "mcp": "node mcp/server.js",
+    "test": "node cli/index.js status"
+  },
+  "keywords": ["v86", "windows", "xp", "emulator", "wasm"],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/teslasolar/XP"
+  }
+}

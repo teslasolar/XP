@@ -1,0 +1,140 @@
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+    background: #1a1a2e;
+    color: #eee;
+    font-family: 'Segoe UI', Tahoma, sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px;
+}
+
+h1 { margin-bottom: 10px; color: #00d4ff; }
+.info { font-size: 0.9em; color: #888; margin-bottom: 20px; }
+
+/* Loader */
+#loader {
+    background: #2a2a4a;
+    border-radius: 10px;
+    padding: 30px;
+    max-width: 500px;
+    width: 100%;
+    text-align: center;
+}
+#loader h2 { margin-bottom: 20px; color: #00d4ff; }
+#loader-status { margin-bottom: 15px; color: #aaa; }
+#loader-error {
+    color: #ff4444;
+    background: rgba(255,0,0,0.1);
+    padding: 10px;
+    border-radius: 5px;
+    margin-top: 15px;
+    display: none;
+}
+
+.progress-container {
+    background: #1a1a2e;
+    border-radius: 5px;
+    overflow: hidden;
+    margin: 10px 0;
+}
+.progress-bar {
+    height: 24px;
+    background: linear-gradient(90deg, #0066cc, #00d4ff);
+    width: 0%;
+    transition: width 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: bold;
+}
+
+.file-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px;
+    margin: 5px 0;
+    background: #1a1a2e;
+    border-radius: 5px;
+    font-size: 14px;
+}
+.file-item .status { color: #888; font-size: 12px; }
+.file-item.done .status { color: #0f0; }
+.file-item.loading .status { color: #ff0; }
+.file-item.error .status { color: #f00; }
+
+/* Emulator */
+#emulator { width: 100%; }
+#screen-container {
+    background: #000;
+    border: 3px solid #333;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 0 30px rgba(0, 212, 255, 0.2);
+    margin: 0 auto;
+}
+#screen-container canvas { display: block; }
+
+.controls {
+    margin-top: 20px;
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+button {
+    background: #0066cc;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background 0.2s;
+}
+button:hover { background: #0088ff; }
+button:disabled { background: #444; cursor: not-allowed; }
+
+#btn-retry { background: #cc6600; margin-top: 15px; }
+#btn-clear-cache { background: #660000; margin-left: 10px; }
+
+#status {
+    margin-top: 15px;
+    padding: 10px 20px;
+    background: #2a2a4a;
+    border-radius: 5px;
+    font-family: monospace;
+    text-align: center;
+}
+
+.serial-console {
+    margin-top: 20px;
+    width: 100%;
+    max-width: 800px;
+}
+#serial-output {
+    background: #000;
+    color: #0f0;
+    font-family: monospace;
+    font-size: 12px;
+    padding: 10px;
+    height: 150px;
+    overflow-y: auto;
+    border-radius: 5px;
+    white-space: pre-wrap;
+    word-break: break-all;
+}
+#serial-input {
+    width: 100%;
+    background: #111;
+    color: #0f0;
+    border: 1px solid #333;
+    padding: 8px;
+    font-family: monospace;
+    margin-top: 5px;
+    border-radius: 5px;
+}
