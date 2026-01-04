@@ -77,9 +77,12 @@ const App = {
             Logger.info(this.TAG, 'Engine loaded');
 
             setTimeout(() => {
-                UI.hide('loader');
-                UI.show('emulator');
-                if (VM_CONFIG.autostart) this.startVM();
+                document.getElementById('loader').style.display = 'none';
+                if (VM_CONFIG.autostart) {
+                    this.startVM();
+                } else {
+                    document.getElementById('emulator').style.display = 'block';
+                }
             }, 500);
 
         } catch (err) {
@@ -98,10 +101,25 @@ const App = {
     },
 
     async startVM() {
+        // Ensure emulator container is visible before v86 creates canvas
+        const emulatorEl = document.getElementById('emulator');
+        const screenEl = document.getElementById('screen-container');
+
+        if (!screenEl) {
+            Logger.error(this.TAG, 'screen-container not found');
+            UI.text('status', 'Status: Error - screen container not found');
+            return;
+        }
+
+        emulatorEl.style.display = 'block';
+
+        // Wait for DOM to update
+        await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+
         UI.text('status', 'Status: Initializing...');
         try {
             await Emulator.init(this.blobURLs, {
-                screen_container: document.getElementById('screen-container'),
+                screen_container: screenEl,
                 hda_url: VM_CONFIG.hda_url,
                 initial_state: VM_CONFIG.initial_state,
                 memory_size: VM_CONFIG.memory_size,
