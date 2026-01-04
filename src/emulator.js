@@ -13,18 +13,25 @@ const Emulator = {
         autostart: true,
     },
 
+    // Direct CDN URLs (avoid blob URLs for CSP compatibility)
+    CDN_URLS: {
+        wasm: 'https://unpkg.com/v86@latest/build/v86.wasm',
+        bios: 'https://cdn.jsdelivr.net/gh/copy/v86@master/bios/seabios.bin',
+        vga_bios: 'https://cdn.jsdelivr.net/gh/copy/v86@master/bios/vgabios.bin',
+    },
+
     async init(blobURLs, opts = {}) {
         if (typeof V86 === 'undefined') throw new Error('V86 not loaded');
 
+        // Use direct CDN URLs instead of blob URLs for better CSP compatibility
         this.config = {
-            wasm_path: blobURLs['v86.wasm'],
-            bios: { url: blobURLs['seabios.bin'] },
-            vga_bios: { url: blobURLs['vgabios.bin'] },
+            wasm_path: this.CDN_URLS.wasm,
+            bios: { url: this.CDN_URLS.bios },
+            vga_bios: { url: this.CDN_URLS.vga_bios },
             screen_container: opts.screen_container,
             memory_size: opts.memory_size || this.defaults.memory_size,
             vga_memory_size: opts.vga_memory_size || this.defaults.vga_memory_size,
             autostart: opts.autostart ?? this.defaults.autostart,
-            disable_jit: true,  // Required for GitHub Pages CSP (no eval)
         };
 
         if (opts.hda_url) {
