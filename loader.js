@@ -7,12 +7,28 @@ const V86Loader = {
     DB_VERSION: 1,
     STORE_NAME: 'files',
 
-    // CDN sources for v86 files
+    // CDN sources for v86 files (CORS-friendly via unpkg/npm)
     SOURCES: {
-        'v86.wasm': 'https://copy.sh/v86/build/v86.wasm',
-        'libv86.js': 'https://copy.sh/v86/build/libv86.js',
-        'seabios.bin': 'https://copy.sh/v86/bios/seabios.bin',
-        'vgabios.bin': 'https://copy.sh/v86/bios/vgabios.bin',
+        'v86.wasm': [
+            'https://unpkg.com/v86@latest/build/v86.wasm',
+            'https://cdn.jsdelivr.net/npm/v86@latest/build/v86.wasm',
+            'v86.wasm',
+        ],
+        'libv86.js': [
+            'https://unpkg.com/v86@latest/build/libv86.js',
+            'https://cdn.jsdelivr.net/npm/v86@latest/build/libv86.js',
+            'libv86.js',
+        ],
+        'seabios.bin': [
+            'https://unpkg.com/v86@latest/bios/seabios.bin',
+            'https://cdn.jsdelivr.net/npm/v86@latest/bios/seabios.bin',
+            'seabios.bin',
+        ],
+        'vgabios.bin': [
+            'https://unpkg.com/v86@latest/bios/vgabios.bin',
+            'https://cdn.jsdelivr.net/npm/v86@latest/bios/vgabios.bin',
+            'vgabios.bin',
+        ],
     },
 
     // Required files for VM to run
@@ -61,39 +77,53 @@ const V86Loader = {
         });
     },
 
-    async downloadFile(name, url) {
-        this.setStatus(`Downloading ${name}...`);
+    async downloadFile(name, urls) {
+        const urlList = Array.isArray(urls) ? urls : [urls];
+        let lastError = null;
 
-        const response = await fetch(url);
-        if (!response.ok) throw new Error(`Failed to download ${name}: ${response.status}`);
+        for (const url of urlList) {
+            try {
+                this.setStatus(`Downloading ${name}...`);
 
-        const contentLength = response.headers.get('content-length');
-        const total = contentLength ? parseInt(contentLength, 10) : 0;
-        let loaded = 0;
+                const response = await fetch(url, { mode: 'cors' });
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
 
-        const reader = response.body.getReader();
-        const chunks = [];
+                const contentLength = response.headers.get('content-length');
+                const total = contentLength ? parseInt(contentLength, 10) : 0;
+                let loaded = 0;
 
-        while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            chunks.push(value);
-            loaded += value.length;
+                const reader = response.body.getReader();
+                const chunks = [];
 
-            if (total > 0) {
-                const pct = Math.round((loaded / total) * 100);
-                this.setProgress(name, pct, loaded, total);
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    chunks.push(value);
+                    loaded += value.length;
+
+                    if (total > 0) {
+                        const pct = Math.round((loaded / total) * 100);
+                        this.setProgress(name, pct, loaded, total);
+                    }
+                }
+
+                const data = new Uint8Array(loaded);
+                let offset = 0;
+                for (const chunk of chunks) {
+                    data.set(chunk, offset);
+                    offset += chunk.length;
+                }
+
+                return data;
+            } catch (err) {
+                lastError = err;
+                console.warn(`[Loader] ${name} failed from ${url}:`, err.message);
             }
         }
 
-        const data = new Uint8Array(loaded);
-        let offset = 0;
-        for (const chunk of chunks) {
-            data.set(chunk, offset);
-            offset += chunk.length;
-        }
-
-        return data;
+        throw new Error(`Failed to download ${name}: ${lastError?.message || 'all sources failed'}`);
     },
 
     setStatus(msg) {
