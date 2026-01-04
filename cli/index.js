@@ -11,9 +11,9 @@ const commands = {
         const endpoints = [
             'https://unpkg.com/v86@latest/build/v86.wasm',
             'https://unpkg.com/v86@latest/build/libv86.js',
-            'https://unpkg.com/v86@latest/bios/seabios.bin',
-            'https://unpkg.com/v86@latest/bios/vgabios.bin',
             'https://cdn.jsdelivr.net/npm/v86@latest/build/v86.wasm',
+            'https://cdn.jsdelivr.net/gh/copy/v86@master/bios/seabios.bin',
+            'https://cdn.jsdelivr.net/gh/copy/v86@master/bios/vgabios.bin',
         ];
 
         for (const url of endpoints) {
@@ -45,8 +45,8 @@ const commands = {
         const urls = {
             'v86.wasm': 'https://unpkg.com/v86@latest/build/v86.wasm',
             'libv86.js': 'https://unpkg.com/v86@latest/build/libv86.js',
-            'seabios.bin': 'https://unpkg.com/v86@latest/bios/seabios.bin',
-            'vgabios.bin': 'https://unpkg.com/v86@latest/bios/vgabios.bin',
+            'seabios.bin': 'https://cdn.jsdelivr.net/gh/copy/v86@master/bios/seabios.bin',
+            'vgabios.bin': 'https://cdn.jsdelivr.net/gh/copy/v86@master/bios/vgabios.bin',
         };
 
         if (!name || name === 'all') {

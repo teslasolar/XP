@@ -14,12 +14,12 @@ const Loader = {
             'https://cdn.jsdelivr.net/npm/v86@latest/build/libv86.js',
         ],
         'seabios.bin': [
-            'https://unpkg.com/v86@latest/bios/seabios.bin',
-            'https://cdn.jsdelivr.net/npm/v86@latest/bios/seabios.bin',
+            'https://cdn.jsdelivr.net/gh/copy/v86@master/bios/seabios.bin',
+            'https://raw.githubusercontent.com/copy/v86/master/bios/seabios.bin',
         ],
         'vgabios.bin': [
-            'https://unpkg.com/v86@latest/bios/vgabios.bin',
-            'https://cdn.jsdelivr.net/npm/v86@latest/bios/vgabios.bin',
+            'https://cdn.jsdelivr.net/gh/copy/v86@master/bios/vgabios.bin',
+            'https://raw.githubusercontent.com/copy/v86/master/bios/vgabios.bin',
         ],
     },
 
