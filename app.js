@@ -113,8 +113,8 @@ const App = {
 
         emulatorEl.style.display = 'block';
 
-        // Wait for DOM to update
-        await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+        // Wait for DOM to fully render
+        await new Promise(r => setTimeout(r, 100));
 
         UI.text('status', 'Status: Initializing...');
         try {

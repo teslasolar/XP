@@ -24,6 +24,7 @@ const Emulator = {
             memory_size: opts.memory_size || this.defaults.memory_size,
             vga_memory_size: opts.vga_memory_size || this.defaults.vga_memory_size,
             autostart: opts.autostart ?? this.defaults.autostart,
+            disable_jit: true,  // Required for GitHub Pages CSP (no eval)
         };
 
         if (opts.hda_url) {
