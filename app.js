@@ -77,11 +77,10 @@ const App = {
             Logger.info(this.TAG, 'Engine loaded');
 
             setTimeout(() => {
-                document.getElementById('loader').style.display = 'none';
+                document.getElementById('loader').classList.add('hidden');
+                document.getElementById('emulator').classList.remove('hidden');
                 if (VM_CONFIG.autostart) {
                     this.startVM();
-                } else {
-                    document.getElementById('emulator').style.display = 'block';
                 }
             }, 500);
 
@@ -101,8 +100,6 @@ const App = {
     },
 
     async startVM() {
-        // Ensure emulator container is visible before v86 creates canvas
-        const emulatorEl = document.getElementById('emulator');
         const screenEl = document.getElementById('screen-container');
 
         if (!screenEl) {
@@ -111,10 +108,11 @@ const App = {
             return;
         }
 
-        emulatorEl.style.display = 'block';
+        // Ensure emulator is visible
+        document.getElementById('emulator').classList.remove('hidden');
 
-        // Wait for DOM to fully render
-        await new Promise(r => setTimeout(r, 100));
+        // Wait for layout
+        await new Promise(r => setTimeout(r, 50));
 
         UI.text('status', 'Status: Initializing...');
         try {
