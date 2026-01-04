@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Windows XP - v86 Emulator</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: #1a1a2e;
+            color: #eee;
+            font-family: 'Segoe UI', Tahoma, sans-serif;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+        h1 {
+            margin-bottom: 10px;
+            color: #00d4ff;
+        }
+        .info {
+            font-size: 0.9em;
+            color: #888;
+            margin-bottom: 20px;
+        }
+        #screen-container {
+            background: #000;
+            border: 3px solid #333;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 0 30px rgba(0, 212, 255, 0.2);
+        }
+        #screen-container canvas {
+            display: block;
+        }
+        .controls {
+            margin-top: 20px;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        button {
+            background: #0066cc;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.2s;
+        }
+        button:hover { background: #0088ff; }
+        button:disabled { background: #444; cursor: not-allowed; }
+        #status {
+            margin-top: 15px;
+            padding: 10px 20px;
+            background: #2a2a4a;
+            border-radius: 5px;
+            font-family: monospace;
+        }
+        .serial-console {
+            margin-top: 20px;
+            width: 100%;
+            max-width: 800px;
+        }
+        #serial-output {
+            background: #000;
+            color: #0f0;
+            font-family: monospace;
+            font-size: 12px;
+            padding: 10px;
+            height: 150px;
+            overflow-y: auto;
+            border-radius: 5px;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+        #serial-input {
+            width: 100%;
+            background: #111;
+            color: #0f0;
+            border: 1px solid #333;
+            padding: 8px;
+            font-family: monospace;
+            margin-top: 5px;
+            border-radius: 5px;
+        }
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+    <h1>Windows XP VM</h1>
+    <p class="info">v86 x86 Emulator | 256MB RAM | Self-contained browser sandbox</p>
+
+    <div id="screen-container"></div>
+
+    <div class="controls">
+        <button id="btn-start">Start VM</button>
+        <button id="btn-stop" disabled>Stop VM</button>
+        <button id="btn-restart" disabled>Restart</button>
+        <button id="btn-fullscreen">Fullscreen</button>
+        <button id="btn-save-state" disabled>Save State</button>
+        <button id="btn-ctrlaltdel" disabled>Ctrl+Alt+Del</button>
+    </div>
+
+    <div id="status">Status: Ready</div>
+
+    <div class="serial-console">
+        <div id="serial-output"></div>
+        <input type="text" id="serial-input" placeholder="Serial command (Enter to send)" disabled>
+    </div>
+
+    <script src="libv86.js"></script>
+    <script src="config.js"></script>
+    <script>
+        let emulator = null;
+        const status = document.getElementById('status');
+        const serialOutput = document.getElementById('serial-output');
+        const serialInput = document.getElementById('serial-input');
+        const screenContainer = document.getElementById('screen-container');
+
+        const btnStart = document.getElementById('btn-start');
+        const btnStop = document.getElementById('btn-stop');
+        const btnRestart = document.getElementById('btn-restart');
+        const btnFullscreen = document.getElementById('btn-fullscreen');
+        const btnSaveState = document.getElementById('btn-save-state');
+        const btnCtrlAltDel = document.getElementById('btn-ctrlaltdel');
+
+        function setStatus(msg) {
+            status.textContent = 'Status: ' + msg;
+            console.log('[VM]', msg);
+        }
+
+        function setButtonsRunning(running) {
+            btnStart.disabled = running;
+            btnStop.disabled = !running;
+            btnRestart.disabled = !running;
+            btnSaveState.disabled = !running;
+            btnCtrlAltDel.disabled = !running;
+            serialInput.disabled = !running;
+        }
+
+        async function startVM() {
+            setStatus('Initializing...');
+
+            const config = {
+                wasm_path: VM_CONFIG.wasm_path,
+                memory_size: VM_CONFIG.memory_size,
+                vga_memory_size: VM_CONFIG.vga_memory_size,
+                screen_container: screenContainer,
+                bios: { url: VM_CONFIG.bios_path },
+                vga_bios: { url: VM_CONFIG.vga_bios_path },
+                autostart: true,
+            };
+
+            // Use saved state for instant boot if available
+            if (VM_CONFIG.initial_state) {
+                config.initial_state = { url: VM_CONFIG.initial_state };
+                setStatus('Loading saved state (instant boot)...');
+            } else if (VM_CONFIG.hda_url) {
+                config.hda = { url: VM_CONFIG.hda_url, async: true };
+                setStatus('Loading disk image (cold boot ~2-5min)...');
+            } else {
+                setStatus('ERROR: No disk image or state configured');
+                return;
+            }
+
+            // Optional network relay
+            if (VM_CONFIG.network_relay_url) {
+                config.network_relay_url = VM_CONFIG.network_relay_url;
+            }
+
+            try {
+                emulator = new V86(config);
+
+                emulator.add_listener('emulator-ready', () => {
+                    setStatus('Emulator ready, booting...');
+                    setButtonsRunning(true);
+                });
+
+                emulator.add_listener('emulator-started', () => {
+                    setStatus('Running');
+                });
+
+                emulator.add_listener('serial0-output-byte', (byte) => {
+                    const char = String.fromCharCode(byte);
+                    serialOutput.textContent += char;
+                    serialOutput.scrollTop = serialOutput.scrollHeight;
+                });
+
+            } catch (err) {
+                setStatus('ERROR: ' + err.message);
+                console.error(err);
+            }
+        }
+
+        function stopVM() {
+            if (emulator) {
+                emulator.stop();
+                setStatus('Stopped');
+                setButtonsRunning(false);
+            }
+        }
+
+        function restartVM() {
+            if (emulator) {
+                emulator.restart();
+                setStatus('Restarting...');
+            }
+        }
+
+        function saveState() {
+            if (!emulator) return;
+            setStatus('Saving state...');
+            emulator.save_state((err, state) => {
+                if (err) {
+                    setStatus('Save failed: ' + err);
+                    return;
+                }
+                const blob = new Blob([state]);
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(blob);
+                a.download = 'state.bin';
+                a.click();
+                URL.revokeObjectURL(a.href);
+                setStatus('State saved!');
+            });
+        }
+
+        function sendCtrlAltDel() {
+            if (emulator) {
+                emulator.keyboard_send_scancodes([
+                    0x1D, // Ctrl down
+                    0x38, // Alt down
+                    0x53, // Del down
+                    0xD3, // Del up
+                    0xB8, // Alt up
+                    0x9D, // Ctrl up
+                ]);
+            }
+        }
+
+        function toggleFullscreen() {
+            if (document.fullscreenElement) {
+                document.exitFullscreen();
+            } else {
+                screenContainer.requestFullscreen();
+            }
+        }
+
+        // Event listeners
+        btnStart.addEventListener('click', startVM);
+        btnStop.addEventListener('click', stopVM);
+        btnRestart.addEventListener('click', restartVM);
+        btnFullscreen.addEventListener('click', toggleFullscreen);
+        btnSaveState.addEventListener('click', saveState);
+        btnCtrlAltDel.addEventListener('click', sendCtrlAltDel);
+
+        serialInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && emulator) {
+                emulator.serial0_send(serialInput.value + '\n');
+                serialInput.value = '';
+            }
+        });
+
+        // Auto-start if configured
+        if (VM_CONFIG.autostart) {
+            startVM();
+        }
+    </script>
+</body>
+</html>
